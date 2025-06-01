@@ -1,11 +1,10 @@
 -- Ban Hammer Mod Menu by Maxime
 
-local Players = game:GetService("Players")
+-- === SERVER SETUP ===
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
-local StarterPlayer = game:GetService("StarterPlayer")
 
--- Create RemoteEvent if missing
+-- RemoteEvent for banning
 local banEvent = ReplicatedStorage:FindFirstChild("BanPlayerEvent")
 if not banEvent then
 	banEvent = Instance.new("RemoteEvent")
@@ -13,28 +12,30 @@ if not banEvent then
 	banEvent.Parent = ReplicatedStorage
 end
 
--- Create server script that kicks players
+-- Server script to handle kicking
 if not ServerScriptService:FindFirstChild("BanHammerServerScript") then
 	local serverScript = Instance.new("Script")
 	serverScript.Name = "BanHammerServerScript"
 	serverScript.Source = [[
 		local ReplicatedStorage = game:GetService("ReplicatedStorage")
 		local Players = game:GetService("Players")
-
 		local banEvent = ReplicatedStorage:WaitForChild("BanPlayerEvent")
 
 		banEvent.OnServerEvent:Connect(function(sender, targetName)
-			local targetPlayer = Players:FindFirstChild(targetName)
-			if targetPlayer and targetPlayer ~= sender then
-				targetPlayer:Kick("You were banned by the Ban Hammer.")
+			local target = Players:FindFirstChild(targetName)
+			if target and target ~= sender then
+				target:Kick("You were hit by the Ban Hammer.")
 			end
 		end)
 	]]
 	serverScript.Parent = ServerScriptService
 end
 
--- Create client GUI + hammer
-if not StarterPlayer.StarterPlayerScripts:FindFirstChild("BanHammerClientScript") then
+-- === CLIENT SETUP ===
+local Players = game:GetService("Players")
+local StarterPlayer = game:GetService("StarterPlayer")
+
+if not StarterPlayer:FindFirstChild("BanHammerClientScript") then
 	local clientScript = Instance.new("LocalScript")
 	clientScript.Name = "BanHammerClientScript"
 	clientScript.Source = [[
@@ -42,23 +43,24 @@ if not StarterPlayer.StarterPlayerScripts:FindFirstChild("BanHammerClientScript"
 		local ReplicatedStorage = game:GetService("ReplicatedStorage")
 		local player = Players.LocalPlayer
 
-		local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-		screenGui.Name = "BanHammerGUI"
-		screenGui.ResetOnSpawn = false
+		local gui = Instance.new("ScreenGui")
+		gui.Name = "BanHammerGUI"
+		gui.ResetOnSpawn = false
+		gui.Parent = player:WaitForChild("PlayerGui")
 
-		local toggleButton = Instance.new("TextButton", screenGui)
-		toggleButton.Size = UDim2.new(0, 25, 0, 25)
-		toggleButton.Position = UDim2.new(0, 10, 0, 10)
-		toggleButton.Text = ""
-		toggleButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-		toggleButton.BorderSizePixel = 0
-		toggleButton.Name = "OpenButton"
-		toggleButton.Visible = true
+		local openButton = Instance.new("TextButton", gui)
+		openButton.Size = UDim2.new(0, 25, 0, 25)
+		openButton.Position = UDim2.new(0, 10, 0, 10)
+		openButton.Text = ""
+		openButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		openButton.BorderSizePixel = 0
+		openButton.Name = "OpenButton"
+		openButton.Visible = true
 
-		local mainFrame = Instance.new("Frame", screenGui)
+		local mainFrame = Instance.new("Frame", gui)
 		mainFrame.Size = UDim2.new(0, 300, 0, 200)
 		mainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-		mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 		mainFrame.Visible = false
 		mainFrame.Active = true
 		mainFrame.Draggable = true
@@ -76,7 +78,7 @@ if not StarterPlayer.StarterPlayerScripts:FindFirstChild("BanHammerClientScript"
 
 		closeBtn.MouseButton1Click:Connect(function()
 			mainFrame.Visible = false
-			toggleButton.Visible = true
+			openButton.Visible = true
 		end)
 
 		local title = Instance.new("TextLabel", mainFrame)
@@ -92,7 +94,7 @@ if not StarterPlayer.StarterPlayerScripts:FindFirstChild("BanHammerClientScript"
 		hammerIcon.Size = UDim2.new(0, 64, 0, 64)
 		hammerIcon.Position = UDim2.new(0.5, -32, 0, 55)
 		hammerIcon.BackgroundTransparency = 1
-		hammerIcon.Image = "rbxassetid://11377443"
+		hammerIcon.Image = "rbxassetid://11377443" -- Replace with your own asset if needed
 
 		local giveBtn = Instance.new("TextButton", mainFrame)
 		giveBtn.Size = UDim2.new(0.6, 0, 0, 35)
@@ -121,15 +123,23 @@ if not StarterPlayer.StarterPlayerScripts:FindFirstChild("BanHammerClientScript"
 			handle.CanCollide = false
 			handle.Parent = tool
 
-			local banEvent = ReplicatedStorage:WaitForChild("BanPlayerEvent")
+			local weld = Instance.new("Weld")
+			weld.Part0 = handle
+			weld.Part1 = tool:FindFirstChild("Handle")
+			weld.Parent = handle
 
+			tool.GripForward = Vector3.new(0, 0, -1)
+			tool.GripPos = Vector3.new(0, -2, 0)
+			tool.GripRight = Vector3.new(1, 0, 0)
+			tool.GripUp = Vector3.new(0, 1, 0)
+
+			local mouse = player:GetMouse()
 			tool.Activated:Connect(function()
-				local mouse = player:GetMouse()
 				local target = mouse.Target
 				if target and target.Parent then
 					local targetPlayer = game.Players:GetPlayerFromCharacter(target.Parent)
 					if targetPlayer and targetPlayer ~= player then
-						banEvent:FireServer(targetPlayer.Name)
+						ReplicatedStorage:WaitForChild("BanPlayerEvent"):FireServer(targetPlayer.Name)
 					end
 				end
 			end)
@@ -141,10 +151,10 @@ if not StarterPlayer.StarterPlayerScripts:FindFirstChild("BanHammerClientScript"
 			createBanHammer()
 		end)
 
-		toggleButton.MouseButton1Click:Connect(function()
+		openButton.MouseButton1Click:Connect(function()
 			mainFrame.Visible = true
-			toggleButton.Visible = false
+			openButton.Visible = false
 		end)
 	]]
-	clientScript.Parent = StarterPlayer.StarterPlayerScripts
+	clientScript.Parent = StarterPlayer
 end
